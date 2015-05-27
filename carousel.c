@@ -3,10 +3,11 @@
 int main(void)
 {
 	wiringPiSetup();
-	pinMode(0, OUTPUT);
+	short pin;
+		for(pin = 0; pin < 8; pin++)
+			pinMode(pin, OUTPUT);
 	for(;;)
 	{
-		short pin;
 		for(pin = 0; pin < 8; pin++)
 		{
 			digitalWrite(pin, LOW);
