@@ -10,7 +10,7 @@ int main(void)
 	pinMode(22, OUTPUT);
 	for(;;)
 	{
-		for(pin = 0; pin < 8; pin++)
+		for(pin = 0; pin < 23; pin++)
 		{
 			digitalWrite(pin, LOW);
 			pin = pin == 7 ? 20 : pin;
