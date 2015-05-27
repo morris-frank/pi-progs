@@ -15,7 +15,7 @@ int main(void)
 		{
 			digitalWrite(pin, LOW);
 			digitalWrite((pin+3)%8, HIGH);
-			if(pin % 2 == 0){
+			if(pin % 3 == 0){
 				digitalWrite(21, HIGH);
 				digitalWrite(22, LOW);
 			}else{
