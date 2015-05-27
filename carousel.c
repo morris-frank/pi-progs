@@ -1,4 +1,5 @@
 #include <wiringPi.h>
+#include <stdio.h>
 
 int main(void)
 {
@@ -12,6 +13,7 @@ int main(void)
 	{
 		for(pin = 0; pin < 23; pin++)
 		{
+			printf("%d\n", pin);
 			digitalWrite(pin, LOW);
 			if(pin == 7)
 				pin = 20;
