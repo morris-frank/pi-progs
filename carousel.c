@@ -13,8 +13,9 @@ int main(void)
 		for(pin = 0; pin < 23; pin++)
 		{
 			digitalWrite(pin, LOW);
-			pin = pin == 7 ? 20 : pin;
-			digitalWrite((pin+3)%8, HIGH);
+			if(pin == 7)
+				pin = 20;
+			digitalWrite((pin+3)%23, HIGH);
 			delay(50);
 		}
 	}
