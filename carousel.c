@@ -1,15 +1,19 @@
 #include <wiringPi.h>
 
-int main()
+int main(void)
 {
 	wiringPiSetup();
 	pinMode(0, OUTPUT);
 	for(;;)
 	{
-		digitalWrite(0, HIGH);
-		delay(500);
-		digitalWrite(0, LOW);
-		delay(500);
+		short pin;
+		for(pin = 0; pin < 8; pin++)
+		{
+			digitalWrite(pin, LOW);
+			digitalWrite((pin+2)%8, HIGH);
+			delay(200);
+			/*pin = pin == 7 ? 20 : pin;*/
+		}
 	}
 	return 0;
 }
