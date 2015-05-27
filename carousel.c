@@ -4,16 +4,18 @@ int main(void)
 {
 	wiringPiSetup();
 	short pin;
-		for(pin = 0; pin < 8; pin++)
-			pinMode(pin, OUTPUT);
+	for(pin = 0; pin < 8; pin++)
+		pinMode(pin, OUTPUT);
+	pinMode(21, OUTPUT);
+	pinMode(22, OUTPUT);
 	for(;;)
 	{
 		for(pin = 0; pin < 8; pin++)
 		{
 			digitalWrite(pin, LOW);
-			digitalWrite((pin+2)%8, HIGH);
-			delay(200);
-			/*pin = pin == 7 ? 20 : pin;*/
+			pin = pin == 7 ? 20 : pin;
+			digitalWrite((pin+3)%8, HIGH);
+			delay(50);
 		}
 	}
 	return 0;
