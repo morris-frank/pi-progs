@@ -45,7 +45,7 @@ def is_mpd_playing():
 	return client_state == 'play'
 
 def ip_address_present(address):
-	return os.system("ping -c 1 " + address) == 0
+	return os.system("fping -t50 -c1 " + address) == 0
 
 def start_welcome():
 	wol.send_magic_packet(ENKIDU_MAC, ip_address=ENKIDU_IP, port=WOL_PORT)
