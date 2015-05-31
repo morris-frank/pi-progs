@@ -6,11 +6,9 @@ import time
 
 #The GPIO Pin Number for the door switch (BCM)
 INPUT_PIN = 26
-#File to hold the bool whether I'm at home
-#PRESENT_FILE = '/home/pi/tmp/door.io.present'
 #Global variable to hold whether I'm present
 IS_PRESENT = True
-#Time in sec, I was away or at home
+#Last time I left or arrived
 LAST_CHANGE = time.time()
 #LOG - File
 LOG_FILE = '/home/pi/tmp/door.io.log'
@@ -49,6 +47,7 @@ def shutdown():
 		os.system("sudo -u pi ssh morris@" + ENKIDU_IP + " 'systemctl suspend'")
 
 def add_callback(pin):
+	GPIO.remove_event_detect(pin)
 	GPIO.add_event_detect(pin, GPIO.FALLING, callback=test_open_door, bouncetime=50)
 	
 def shut_door_end(pin, opening_starttime):
@@ -84,7 +83,6 @@ def test_open_door(pin):
 		LAST_CHANGE = opening_starttime
 		shut_door_end(pin, opening_starttime)
 	last_time_opened = opening_starttime
-	GPIO.remove_event_detect(pin)
 	add_callback(pin)
 	return True
 
@@ -92,12 +90,13 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup(INPUT_PIN, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
 
-try:
-	last_time_opened = ((time.time()) - 10)
-	add_callback(INPUT_PIN)
+if __name__ == "__main__":
+	try:
+		last_time_opened = ((time.time()) - 10)
 
-	while True:
-		time.sleep(10)
-
-finally:
-	GPIO.cleanup()
+		while True:
+			add_callback(INPUT_PIN)
+			time.sleep(300)
+		
+	finally:
+		GPIO.cleanup()
