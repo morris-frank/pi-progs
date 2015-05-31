@@ -7,6 +7,8 @@ import random
 
 #The GPIO Pin Number for the door switch (BCM)
 INPUT_PIN = 26
+#The second one, same circuit
+INPUT2_PIN = 16
 #Global variable to hold whether I'm present
 IS_PRESENT = True
 #Last time I left or arrived
@@ -65,7 +67,7 @@ def shut_door_end(pin, opening_starttime):
 	d_print('and shut after {:.2f} sec'.format(time.time() - opening_starttime), False)
 
 def test_open_door(pin):
-	global last_time_opened, IS_PRESENT
+	global last_time_opened, IS_PRESENT, LAST_CHANGE
 	opening_starttime = time.time()
 	if (opening_starttime - last_time_opened) <= 5:
 		return False
@@ -77,34 +79,35 @@ def test_open_door(pin):
 		time.sleep(0.05)
 	d_print('Door was opened')
 	if IS_PRESENT:
-		shut_door_end(pin, opening_starttime)
+		shut_door_end(INPUT2_PIN, opening_starttime)
 		if not is_mpd_playing() and not ip_address_present(MERCURIUS_IP):
 			d_print('with Master leaving', False)
-			d_print('after he was ' + str(opening_starttime - LAST_CHANGE) + 'sec at home', False)
+			d_print('after he was ' + str(int(opening_starttime - LAST_CHANGE)) + 'sec at home', False)
 			IS_PRESENT = False
 			LAST_CHANGE = opening_starttime
 			shutdown()
 	else:
 		start_welcome()
 		d_print('with Master arriving', False)
-		d_print('after he was ' + str(opening_starttime - LAST_CHANGE) + 'sec away from home', False)
+		d_print('after he was ' + str(int(opening_starttime - LAST_CHANGE)) + 'sec away from home', False)
 		IS_PRESENT = True
 		LAST_CHANGE = opening_starttime
-		shut_door_end(pin, opening_starttime)
+		shut_door_end(INPUT2_PIN, opening_starttime)
 	last_time_opened = opening_starttime
-	add_callback(pin)
-	return True
+	#add_callback(pin)
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup(INPUT_PIN, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+GPIO.setup(INPUT2_PIN, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
 
 if __name__ == "__main__":
 	try:
 		last_time_opened = ((time.time()) - 10)
+		add_callback(INPUT_PIN)
 
 		while True:
-			add_callback(INPUT_PIN)
+			#add_callback(INPUT_PIN)
 			time.sleep(300)
 		
 	finally:
