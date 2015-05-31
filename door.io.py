@@ -3,6 +3,7 @@ from mpd import MPDClient
 from wakeonlan import wol
 import os
 import time
+import random
 
 #The GPIO Pin Number for the door switch (BCM)
 INPUT_PIN = 26
@@ -20,6 +21,8 @@ ENKIDU_MAC = 'E0.CB.4E.DA.68.7F'
 ENKIDU_IP = '192.168.0.101'
 #Forwarded port to wol enkidu
 WOL_PORT = 40000
+#DIR with subdirs with mp3-messages
+MESSAGES_DIR = '/home/pi/var/text-to-speech/'
 
 def d_print(message, print_time=True):
 	if print_time:
@@ -27,6 +30,9 @@ def d_print(message, print_time=True):
 	print(message)
 	with open(LOG_FILE, 'a') as f_log:
 		print >> f_log, message
+		
+def play_rand_message(type):
+	os.system("mpg123 " + MESSAGES_DIR + type + "/" + random.choice(os.listdir("/home/pi/var/text-to-speech/" + type + "/")))
 
 
 def is_mpd_playing():
@@ -41,8 +47,11 @@ def ip_address_present(address):
 
 def start_welcome():
 	wol.send_magic_packet(ENKIDU_MAC, ip_address=ENKIDU_IP, port=WOL_PORT)
+	play_rand_message('welcome')
+	play_rand_message('welcome-joke')
 
 def shutdown():
+	play_rand_message('goodbye')
 	if ip_address_present(ENKIDU_IP):
 		os.system("sudo -u pi ssh morris@" + ENKIDU_IP + " 'systemctl suspend'")
 
