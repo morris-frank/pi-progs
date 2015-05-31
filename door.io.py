@@ -7,7 +7,11 @@ import time
 #The GPIO Pin Number for the door switch (BCM)
 INPUT_PIN = 26
 #File to hold the bool whether I'm at home
-PRESENT_FILE = '/home/pi/tmp/door.io.present'
+#PRESENT_FILE = '/home/pi/tmp/door.io.present'
+#Global variable to hold whether I'm present
+IS_PRESENT = True
+#Time in sec, I was away or at home
+LAST_CHANGE = time.time()
 #LOG - File
 LOG_FILE = '/home/pi/tmp/door.io.log'
 #BOUND local IP address of my laptop
@@ -46,11 +50,16 @@ def shutdown():
 
 def add_callback(pin):
 	GPIO.add_event_detect(pin, GPIO.FALLING, callback=test_open_door, bouncetime=50)
+	
+def shut_door_end(pin, opening_starttime):
+	GPIO.remove_event_detect(pin)
+	GPIO.wait_for_edge(pin, GPIO.RISING)
+	d_print('and shut after {:.2f} sec'.format(time.time() - opening_starttime), False)
 
 def test_open_door(pin):
-	global time_stamp
-	time_now = time.time()
-	if (time_now - time_stamp) <= 5:
+	global last_time_opened, IS_PRESENT
+	opening_starttime = time.time()
+	if (opening_starttime - last_time_opened) <= 5:
 		return False
 	time.sleep(0.3)
 	for off_probe_counter in range(1,10):
@@ -58,42 +67,33 @@ def test_open_door(pin):
 		if GPIO.input(pin):
 			return False
 		time.sleep(0.05)
-	time_opened = time.time()
 	d_print('Door was opened')
-	post_open_door()
-	GPIO.remove_event_detect(pin)
-	GPIO.wait_for_edge(pin, GPIO.RISING)
-	d_print('and shut after {:.2f} sec'.format(time.time() - time_opened), False)
-	time_stamp = time.time()
+	if IS_PRESENT:
+		shut_door_end(pin, opening_starttime)
+		if not is_mpd_playing() and not ip_address_present(MERCURIUS_IP):
+			d_print('with Master leaving', False)
+			d_print('after he was ' + str(opening_starttime - LAST_CHANGE) + 'sec at home', False)
+			IS_PRESENT = False
+			LAST_CHANGE = opening_starttime
+			shutdown()
+	else:
+		start_welcome()
+		d_print('with Master arriving', False)
+		d_print('after he was ' + str(opening_starttime - LAST_CHANGE) + 'sec away from home', False)
+		IS_PRESENT = True
+		LAST_CHANGE = opening_starttime
+		shut_door_end(pin, opening_starttime)
+	last_time_opened = opening_starttime
 	GPIO.remove_event_detect(pin)
 	add_callback(pin)
-
-def post_open_door():
-	open(PRESENT_FILE, 'a').close()
-	with open(PRESENT_FILE, 'r+') as f_pres:
-		b_pres = f_pres.readline().rstrip('\n')
-		f_pres.seek(0)
-		if b_pres == 'true' or not b_pres:
-			if not is_mpd_playing() and not ip_address_present(MERCURIUS_IP):
-				d_print('with Maurice leaving', False)
-				f_pres.write('false')
-				shutdown()
-			else:
-				f_pres.write('true')
-		elif b_pres == 'false':
-			d_print('with Maurice arriving', False)
-			f_pres.write('true')
-			start_welcome()
-		else:
-			d_print('ERROR: PRESENT_FILE has unrecognized content')
-		f_pres.truncate()
+	return True
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup(INPUT_PIN, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
 
 try:
-	time_stamp = ((time.time()) - 10)
+	last_time_opened = ((time.time()) - 10)
 	add_callback(INPUT_PIN)
 
 	while True:
