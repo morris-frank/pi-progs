@@ -25,32 +25,25 @@ def d_print(message, print_time=True):
 	print(message)
 	with open(LOG_FILE, 'a') as f_log:
 		print >> f_log, message
-	
+
 
 def is_mpd_playing():
 	client = MPDClient()
 	client.connect('localhost', 6600)
 	client_state = client.status()['state']
 	client.close()
-	if client_state == 'play':
-		return True
-	else:
-		return False
-	
+	return client_state == 'play'
+
 def ip_address_present(address):
-	is_up = os.system("ping -c 1 " + address)
-	if is_up == 0:
-		return True
-	else:
-		return False 
-	
+	return os.system("ping -c 1 " + address) == 0
+
 def start_welcome():
 	wol.send_magic_packet(ENKIDU_MAC, ip_address=ENKIDU_IP, port=WOL_PORT)
-	
+
 def shutdown():
 	if ip_address_present(ENKIDU_IP):
-		os.system("sudo -u pi ssh morris@" + ENKIDU_IP + " 'systemctl suspend'")	
-	
+		os.system("sudo -u pi ssh morris@" + ENKIDU_IP + " 'systemctl suspend'")
+
 def add_callback(pin):
 	GPIO.add_event_detect(pin, GPIO.FALLING, callback=test_open_door, bouncetime=50)
 
@@ -74,7 +67,7 @@ def test_open_door(pin):
 	time_stamp = time.time()
 	GPIO.remove_event_detect(pin)
 	add_callback(pin)
-	
+
 def post_open_door():
 	open(PRESENT_FILE, 'a').close()
 	with open(PRESENT_FILE, 'r+') as f_pres:
@@ -92,7 +85,7 @@ def post_open_door():
 			f_pres.write('true')
 			start_welcome()
 		else:
-			d_print('ERROR: PRESENT_FILE has unreadable content')
+			d_print('ERROR: PRESENT_FILE has unrecognized content')
 		f_pres.truncate()
 
 GPIO.setmode(GPIO.BCM)
@@ -102,9 +95,9 @@ GPIO.setup(INPUT_PIN, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
 try:
 	time_stamp = ((time.time()) - 10)
 	add_callback(INPUT_PIN)
-	
-	while True:
-		time.sleep(4)
 
-finally:	
+	while True:
+		time.sleep(10)
+
+finally:
 	GPIO.cleanup()
