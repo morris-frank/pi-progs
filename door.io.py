@@ -11,8 +11,8 @@ INPUT_PIN = 26
 INPUT2_PIN = 16
 #Global variable to hold whether I'm present
 IS_PRESENT = True
-#Last time I left or arrived
-LAST_CHANGE = time.time()
+#File to hold Timestamp of Last Change
+LAST_CHANGE_FILE = '/home/pi/tmp/door.io.change'
 #LOG - File
 LOG_FILE = '/home/pi/tmp/door.io.log'
 #BOUND local IP address of my laptop
@@ -65,9 +65,29 @@ def shut_door_end(pin, opening_starttime):
 	GPIO.remove_event_detect(pin)
 	GPIO.wait_for_edge(pin, GPIO.RISING)
 	d_print('and shut after {:.2f} sec'.format(time.time() - opening_starttime), False)
+	GPIO.remove_event_detect(pin)
+	
+def is_leaving_plausible():
+	return not is_mpd_playing() and not ip_address_present(MERCURIUS_IP)
+
+def get_last_change():
+	open(LAST_CHANGE_FILE, 'a').close()
+	with open(LAST_CHANGE_FILE, 'r+') as handle:
+		last_change = handle.readline().rstrip('\n')
+	if not last_change:
+		last_change = time.time()
+	return int(last_change)
+
+def write_last_change(change):
+	open(LAST_CHANGE_FILR, 'a').close()
+	with open(LAST_CHANGE_FILE, 'r+') as handle:
+		handle.seek(0)
+		handle.write(str(int(change)))
+		handle.truncate()
+	return true
 
 def test_open_door(pin):
-	global last_time_opened, IS_PRESENT, LAST_CHANGE
+	global last_time_opened, IS_PRESENT
 	opening_starttime = time.time()
 	if (opening_starttime - last_time_opened) <= 5:
 		return False
@@ -80,21 +100,20 @@ def test_open_door(pin):
 	d_print('Door was opened')
 	if IS_PRESENT:
 		shut_door_end(INPUT2_PIN, opening_starttime)
-		if not is_mpd_playing() and not ip_address_present(MERCURIUS_IP):
+		if is_leaving_plausible():
 			d_print('with Master leaving', False)
-			d_print('after he was ' + str(int(opening_starttime - LAST_CHANGE)) + 'sec at home', False)
+			d_print('after he was ' + str(int(opening_starttime - get_last_change())) + 'sec at home', False)
 			IS_PRESENT = False
-			LAST_CHANGE = opening_starttime
+			write_last_change(opening_starttime)
 			shutdown()
 	else:
 		start_welcome()
 		d_print('with Master arriving', False)
-		d_print('after he was ' + str(int(opening_starttime - LAST_CHANGE)) + 'sec away from home', False)
+		d_print('after he was ' + str(int(opening_starttime - get_last_change())) + 'sec away from home', False)
 		IS_PRESENT = True
-		LAST_CHANGE = opening_starttime
+		write_last_change(opening_starttime)
 		shut_door_end(INPUT2_PIN, opening_starttime)
 	last_time_opened = opening_starttime
-	#add_callback(pin)
 
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
@@ -107,7 +126,6 @@ if __name__ == "__main__":
 		add_callback(INPUT_PIN)
 
 		while True:
-			#add_callback(INPUT_PIN)
 			time.sleep(300)
 		
 	finally:
