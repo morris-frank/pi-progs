@@ -20,17 +20,21 @@ WEB_DIR = '/home/pi/srv/ceres/'
 
 #NETWORK STUFF
 #IP and MAC-Address for ENKIDU
-ENKIDU_NET = ['IP': '192.168.0.101', 'MAC': 'E0.CB.4E.DA.68.7F']
+ENKIDU_NET = {'IP': '192.168.0.101', 'MAC': 'E0.CB.4E.DA.68.7F'}
 #Used Ports for ENKIDU
 ENKIDU_PORTS = {'wakeonlan': 40000}
 #IP and MAC-Address for MERCURIUS
 MERCURIUS_NET = {'IP': '192.168.0.102', 'MAC': None}
 #Used Ports for MERCURIUS
-ERCURIUS_PORTS = {}
+MERCURIUS_PORTS = {}
 
 #HARDWARE STUFF
 #Pins and their uses (BCM numbering)
 PIN = {'door_switch': 26, 'door_opened_waiter': 16, 'alarm_switch': 16}
+
+#RUNTIME STUFF
+#Is the program in verbose mode?
+VERBOSE_MODE = False
 
 if VERBOSE_MODE:
 	def vprint(*args):
@@ -38,7 +42,7 @@ if VERBOSE_MODE:
 			print arg,
 		print
 else:
-	def vprint lambda *a: None
+	def vprint = lambda *a: None
 
 def setup_gpio():
 	GPIO.setmode(GPIO.BCM)
@@ -61,7 +65,6 @@ class Log_Processer:
 
 	def append(self, preachmodule, message):
 		vprint(preachmodule + ' logged: ' + message)
-		return True
 
 class Feedbacker:
 	def event(self, event):
