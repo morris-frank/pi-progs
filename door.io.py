@@ -98,29 +98,32 @@ def test_open_door(pin):
 			return False
 		time.sleep(0.05)
 	d_print('Door was opened')
+	last_change = get_last_change()
+	if (opening_starttime -last_change) <= 15:
+		return False
 	if IS_PRESENT:
-		shut_door_end(INPUT2_PIN, opening_starttime)
 		if is_leaving_plausible():
 			d_print('with Master leaving', False)
-			d_print('after he was ' + str(int(opening_starttime - get_last_change())) + 'sec at home', False)
+			d_print('after he was ' + str(int(opening_starttime - last_change)) + 'sec at home', False)
 			IS_PRESENT = False
 			write_last_change(opening_starttime)
 			shutdown()
 	else:
 		start_welcome()
 		d_print('with Master arriving', False)
-		d_print('after he was ' + str(int(opening_starttime - get_last_change())) + 'sec away from home', False)
+		d_print('after he was ' + str(int(opening_starttime - last_change)) + 'sec away from home', False)
 		IS_PRESENT = True
 		write_last_change(opening_starttime)
-		shut_door_end(INPUT2_PIN, opening_starttime)
+	shut_door_end(INPUT2_PIN, opening_starttime)
 	last_time_opened = opening_starttime
 
-GPIO.setmode(GPIO.BCM)
-GPIO.setwarnings(False)
-GPIO.setup(INPUT_PIN, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
-GPIO.setup(INPUT2_PIN, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
-
 if __name__ == "__main__":
+
+	GPIO.setmode(GPIO.BCM)
+	GPIO.setwarnings(False)
+	GPIO.setup(INPUT_PIN, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+	GPIO.setup(INPUT2_PIN, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
+
 	try:
 		last_time_opened = ((time.time()) - 10)
 		add_callback(INPUT_PIN)

@@ -60,7 +60,7 @@ def ip_address_present(address):
 	return os.system("fping -t50 -c1 " + address) == 0
 
 class Log_Processer:
-	def __init(self, log_dir):
+	def __init__(self, log_dir):
 		self.log_dir = log_dir
 
 	def append(self, preachmodule, message):
@@ -73,24 +73,27 @@ class Feedbacker:
 		elif event == 'boot-down':
 			self.boot_down()
 
-	def speak(message):
+	def speak(self, message):
 		print message
 
-	def audio(aim):
+	def audio(self, aim):
 		print 'Playing ' + aim
 
-	def boot_up():
+	def boot_up(self):
 		self.audio('boot sound')
 		wol.send_magic_packet(ENKIDU_NET['MAC'], ip_address=ENKIDU_NET['IP'], port=ENKIDU_PORTS['wakeonlan'])
 		self.speak('welcome master')
 
-	def boot_down():
+	def boot_down(self):
 		self.speak('goodbye')
 		if ip_address_present(ENKIDU_NET['IP']):
 			os.system("sudo -u pi ssh morris@" + ENKIDU_NET['IP'] + " 'systemctl suspend'")
 
 class Server:
-
+	
+	def __init__(self):
+		print 'Starting Server'
+	
 class PreachModule:
 	name = None
 	logger = None
@@ -118,6 +121,7 @@ class Door(PreachModule):
 		self.hold_pin = hold_pin
 		self.feedback = feedback
 		self.logger = logger
+		self.is_at_home = True
 		self.last_time_opened = time.time() - Door.last_time_opened_bouncetime
 		setup_gpio()
 		GPIO.setup(self.switch_pin, GPIO.IN, pull_up_down = GPIO.PUD_DOWN)
@@ -139,16 +143,16 @@ class Door(PreachModule):
 				return False
 			time.sleep(0.05)
 		self.logger.append(self.name, ['open', begin_opening])
-		if self.is_at_home_:
+		if self.is_at_home:
 			self.probe_closing(self.hold_pin)
 			if self.is_leaving_plausible():
 				self.logger.append(self.name, ['left', begin_opening])
-				self.is_at_home_ = False
+				self.is_at_home = False
 				self.feedback.event('boot-down')
 		else:
 			self.feedback.event('boot-up')
 			self.logger.append(self.name, ['came', begin_opening])
-			self.is_at_home_ = True
+			self.is_at_home = True
 			self.probe_closing(self.hold_pin)
 		self.last_time_opened = begin_opening
 
@@ -166,9 +170,16 @@ class Alarm(PreachModule):
 		self.logger = logger
 
 def main(argv):
-	feedback = Feedbacker()
-	logger = Log_Processer(LOG_DIR)
-	door = Door(PIN['door_switch'], PIN['door_opened_waiter'], feedback, logger)
+	try:
+		feedback = Feedbacker()
+		logger = Log_Processer(LOG_DIR)
+		door = Door(PIN['door_switch'], PIN['door_opened_waiter'], feedback, logger)
+		
+		while True:
+			time.sleep(300)
 
-if __name__ = '__main__':
+	finally:
+		GPIO.cleanup()
+
+if __name__ == '__main__':
 	main(sys.argv[1:])
