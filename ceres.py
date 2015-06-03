@@ -42,7 +42,7 @@ if VERBOSE_MODE:
 			print arg,
 		print
 else:
-	def vprint = lambda *a: None
+	vprint = lambda *a: None
 
 def setup_gpio():
 	GPIO.setmode(GPIO.BCM)
