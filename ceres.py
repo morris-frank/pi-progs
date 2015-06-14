@@ -10,6 +10,7 @@ import wave
 import alsaaudio
 import random
 import csv
+import ctypes
 import urllib
 
 #External Modules
@@ -27,6 +28,10 @@ LOG_DIR = '/home/pi/var/log/ceres/'
 AUDIO_DIR = '/home/pi/var/audio/ceres/'
 #Dir for home of the http-server
 WEB_DIR = '/home/pi/srv/ceres/'
+#C implentation of the trie needed for sentence building
+TRIE_C_IMPL = '/home/pi/pi-progs/ceres_key_c.so'
+#DB of the sentences
+TRIE_SENTENCE_DB = '/home/pi/pi-progs/ceres-sentencedb.csv'
 
 #NETWORK STUFF
 #IP and MAC-Address for ENKIDU
@@ -45,9 +50,9 @@ PIN = {'door_switch': 26, 'door_opened_waiter': 16, 'alarm_switch': 16}
 #RUNTIME STUFF
 #Is the program in verbose mode?
 VERBOSE_MODE = False
-
-
+#Will be funtion to print verbose stuff
 vprint = None
+ceres_key_c = ctypes.CDLL(TRIE_C_IMPL)
 
 
 def setup_gpio():
@@ -66,6 +71,32 @@ def is_mpd_playing():
 
 def ip_address_present(address):
     return os.system("fping -q -t50 -c1 " + address) == 0
+
+
+class SentenceTrie:
+    def __init__(self):
+        self.trie = ceres_key_c.create_trie()
+        self.key_dict = {}
+        self.next_key_id = 1
+
+    def parse_db_file(self, file):
+        with open(file) as dbfile:
+            reader = csv.reader(dbfile, delimiter=',', quotechar='"')
+            for row in reader:
+                self.append(row[0], row[1:])
+
+    def append(self, sentence, tags):
+        sentence = ctypes.c_char_p(sentence)
+        keylist = ceres_key_c.create_keylist()
+        for tag in tags:
+            tag = tag.upper()
+            if tag not in self.key_dict:
+                self.key_dict[tag] = self.next_key_id
+                ceres_key_c.create_and_place_into_keylist(keylist, ctypes.c_int(self.next_key_id))
+                self.next_key_id += 1
+            else:
+                ceres_key_c.create_and_place_into_keylist(keylist, ctypes.c_int(self.key_dict[tag]))
+        ceres_key_c.sentence_into_trie(self.trie, keylist, sentence)
 
 
 class URLopener(urllib.FancyURLopener):
@@ -211,7 +242,6 @@ class Door(PreachModule):
             if self.is_leaving_plausible():
                 self.logger.append(self.name, ['left', begin_opening])
                 self.is_at_home = False
-                print "REALLY"
                 self.feedback.event('boot-down')
         else:
             self.feedback.event('boot-up')
@@ -235,7 +265,7 @@ class Alarm(PreachModule):
         self.logger = logger
 
 
-def main(argv):
+def parse_argv(argv):
     global VERBOSE_MODE
 
     try:
@@ -259,6 +289,11 @@ def main(argv):
         _vprint = lambda *a: None
     global vprint
     vprint = _vprint
+
+
+def main(argv):
+
+    parse_argv(argv)
 
     try:
         feedback = Feedbacker()
