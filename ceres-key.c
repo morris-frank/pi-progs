@@ -4,6 +4,8 @@
 #include <locale.h>
 #include <wchar.h>
 
+#define MALLOC_NEW(x) (x *)malloc(sizeof(x))
+
 typedef int KeyType;
 
 typedef char CHAR;
@@ -38,12 +40,13 @@ struct KeyList
     struct KeyListItem * first;
 };
 
-struct TrieNode
+struct Node
 {
     KeyType key;
-    struct TrieNode * parent;
-    struct TrieNode * sibling;
-    struct TrieNode * child;
+    struct Node * parent;
+    struct Node * sibling;
+    struct Node * junior;
+    struct Node * child;
     unsigned int hasSentences : 1;
     struct SentenceList * sentenceList;
     int sentenceCount;
@@ -51,9 +54,9 @@ struct TrieNode
 
 struct Trie
 {
-    struct TrieNode * root;
+    struct Node * root;
     int sentenceCount;
-;};
+};
 
 void init_sentencelist(struct SentenceList * list)
 {
@@ -67,28 +70,55 @@ void init_keylistitem(struct KeyListItem * key)
     key->next = 0;
 }
 
+inline void next(struct KeyListItem * key){
+    key = key->next;
+}
+
 void init_keylist(struct KeyList * list)
 {
     list->count = 0;
     list->first = 0;
 }
 
-void init_trienode(struct TrieNode * node)
+void init_node
+(
+        struct Node * node, 
+        struct Node * parent, 
+        struct Node * child, 
+        struct Node * junior, 
+        struct Node * sibling
+)
 {
     node->key = 0;
-    if( !node->parent )
-        node->parent = NULL;
-    node->child = NULL;
-    node->sibling = NULL;
+    node->parent = parent;
+    node->child = child;
+    node->sibling = sibling;
+    node->junior = junior;
     node->hasSentences = 0;
     node->sentenceList = NULL;
     node->sentenceCount = 1;
 }
 
+inline void parent(struct Node * node){
+    node = node->parent;
+}
+
+inline void sibling(struct Node * node){
+    node = node->sibling;
+}
+
+inline void junior(struct Node * node){
+    node = node->junior;
+}
+
+inline void child(struct Node * node){
+    node = node->child;
+}
+
 void init_trie(struct Trie * trie)
 {
-    trie->root = (struct TrieNode *)malloc(sizeof(struct TrieNode));
-    init_trienode(trie->root);
+    trie->root = MALLOC_NEW(struct Node);
+    init_node(trie->root, NULL, NULL, NULL, NULL);
     trie->sentenceCount = 0;
 }
 
@@ -106,7 +136,7 @@ void append_sentence(struct SentenceList * list, STRING sentence)
 
 struct SentenceList * malloc_sentences(STRING sentence)
 {
-    struct SentenceList * list = (struct SentenceList *)malloc(sizeof(struct SentenceList));
+    struct SentenceList * list = MALLOC_NEW(struct SentenceList);
     init_sentencelist(list);
     append_sentence(list, sentence);
     wprintf(L"malloc: %s\n", list->list[0]);
@@ -118,20 +148,20 @@ void sort_keylist(struct KeyList * list)
     return;
 }
 
-struct TrieNode * search_node_in_trie(struct Trie * trie, struct KeyList * keylist)
+struct Node * search_node_in_trie(struct Trie * trie, struct KeyList * keylist)
 {
-    struct TrieNode * trie_iterator = trie->root->child;
-    struct KeyListItem * keylist_iterator = keylist->first;
-    struct TrieNode * last_sentenced = trie->root;
+    struct Node * nIt = trie->root->child;
+    struct KeyListItem * lIt = keylist->first;
+    struct Node * last_sentenced = trie->root;
 
-    while(keylist_iterator != 0 && trie_iterator != 0){
-        if(trie_iterator->key == keylist_iterator->key){
-            if(trie_iterator != 0 && trie_iterator->hasSentences != 0)
-                last_sentenced = trie_iterator;
-            trie_iterator = trie_iterator->child;
-            keylist_iterator = keylist_iterator->next;
+    while(lIt && nIt){
+        if(nIt->key == lIt->key){
+            if(nIt && nIt->hasSentences)
+                last_sentenced = nIt;
+            nIt = nIt->child;
+            next(lIt);
         }else{
-            trie_iterator = trie_iterator->sibling;
+            nIt = nIt->sibling;
         }
     }
     return last_sentenced;
@@ -139,97 +169,81 @@ struct TrieNode * search_node_in_trie(struct Trie * trie, struct KeyList * keyli
 
 STRING search_sentence_in_trie(struct Trie * trie, struct KeyList * keylist)
 {
-    struct TrieNode * found_node = search_node_in_trie(trie, keylist);
+    struct Node * found_node = search_node_in_trie(trie, keylist);
     int sentence_id = rand_int(found_node->sentenceList->count);
     return found_node->sentenceList->list[sentence_id];
 }
 
 void sentence_into_trie(struct Trie * trie, struct KeyList * keylist, STRING sentence )
 {
-    struct TrieNode * trie_iterator = trie->root->child;
-    struct TrieNode * trie_iterator_prec = trie->root;
-    struct KeyListItem * keylist_iterator = keylist->first;
+    struct Node * nIt = trie->root->child;
+    struct KeyListItem * lIt = keylist->first;
+    struct Node * sibl;
 
-    //Solange nicht an einem Trie Ende oder Listen Ende
-    //hier soll trie_iterator_prec = trie_iterator-1 erfüllt sein!!!!
-    while( trie_iterator && keylist_iterator ){
-        //Suche in den Siblings
-        //trie_iterator muss den _prec noch abhängen
-        //if(trie_iterator == trie_iterator_prec)
-        //    trie_iterator = trie_iterator->sibling;
+    for(; nIt && lIt; next(lIt)){
+        for(; nIt->sibling && nIt->key < lIt->key; sibling(nIt));
 
-        //Suche ersten größeren Sibling
-        while( trie_iterator && trie_iterator->key < keylist_iterator->key ){
-            trie_iterator_prec = trie_iterator;
-            trie_iterator = trie_iterator->sibling;
-        }
-
-        //Gleich großen Sibling-Node gefunden, auf zum Kind
-        if( trie_iterator && trie_iterator->key == keylist_iterator->key ){
-            trie_iterator_prec = trie_iterator;
-            trie_iterator->sentenceCount++;
-            trie_iterator = trie_iterator->child;
-            keylist_iterator = keylist_iterator->next;
+        if(nIt->key == lIt->key){
+            nIt->sentenceCount++;
+            child(nIt);
             continue;
         }
 
-        //Neuer Node wird Child
-        if( trie_iterator && trie_iterator->key > keylist_iterator->key ){
-            trie_iterator_prec->child = (struct TrieNode *)malloc(sizeof(struct TrieNode));
-            trie_iterator_prec->child->parent = trie_iterator_prec;
-            trie_iterator_prec = trie_iterator_prec->child;
-        }else{
-            trie_iterator_prec->sibling = (struct TrieNode *)malloc(sizeof(struct TrieNode));
-            trie_iterator_prec->sibling->parent = trie_iterator_prec;
-            trie_iterator_prec = trie_iterator_prec->sibling;
-        }
+        if(nIt->key > lIt->key)
+            if(!nIt->junior){
+                sibl = nIt;
+                parent(nIt);
+                break;
+            }else
+                junior(nIt);
 
-        init_trienode(trie_iterator_prec);
-        trie_iterator_prec->sibling = trie_iterator; // == 0 wenn trie_iterator = 0!
-        trie_iterator_prec->key = keylist_iterator->key;
-        keylist_iterator = keylist_iterator->next;
-        trie_iterator = trie_iterator_prec->child; // == 0
+        sibl = nIt->sibling;
+
+        nIt->sibling = MALLOC_NEW(struct Node);
+        init_node(nIt->sibling, nIt->parent, NULL, nIt, sibl);
+        sibling(nIt);
+        nIt->key = lIt->key;
+        sibl->junior = nIt;
+        sibl = NULL;
     }
-
-    if( !trie_iterator )
-        trie_iterator = trie_iterator_prec;
 
     //Hängt noch solange Kinder an wie der Stack elemente hat
-    for( ; keylist_iterator; keylist_iterator = keylist_iterator->next ){
-        trie_iterator->child = (struct TrieNode *)malloc(sizeof(struct TrieNode));
-        trie_iterator->child->parent = trie_iterator;
-        trie_iterator = trie_iterator->child;
-        init_trienode(trie_iterator);
-        trie_iterator->key = keylist_iterator->key;
+    for(; lIt; next(lIt), child(nIt)){
+        nIt->child = MALLOC_NEW(struct Node);
+        init_node(nIt->child, nIt, NULL, NULL, sibl);
+        if(sibl)
+            sibl->junior = nIt->child;
+        sibl = NULL;
+        nIt->key = lIt->key;
     }
 
-    if( !trie_iterator->hasSentences ){
-        trie_iterator->hasSentences = 1;
-        trie_iterator->sentenceList = malloc_sentences(sentence);
-        wprintf(L"into_trie: %s\n", trie_iterator->sentenceList->list[0]);
+    if( !nIt->hasSentences ){
+        nIt->hasSentences = 1;
+        nIt->sentenceList = malloc_sentences(sentence);
+        wprintf(L"into_trie: %s\n", nIt->sentenceList->list[0]);
     }else{
-        append_sentence(trie_iterator->sentenceList, sentence);
+        append_sentence(nIt->sentenceList, sentence);
     }
 }
 
-void print_trie_prefixed(struct TrieNode * root, int prefix)
+void print_trie_prefixed(struct Node * root, int prefix)
 {
-    struct TrieNode * trie_iterator;
+    struct Node * nIt;
     print_times("    ", prefix);
     wprintf(L" | \n");
-    print_times("    ",prefix);
+    print_times("    ", prefix);
 
-    for(trie_iterator = root; trie_iterator; trie_iterator = trie_iterator->child)
-        if( trie_iterator->hasSentences == 0 )
-            wprintf(L" %d -", trie_iterator->key);
+    for(nIt = root; nIt; child(nIt))
+        if( nIt->hasSentences == 0 )
+            wprintf(L" %d -", nIt->key);
         else
-            wprintf(L"[%d]-", trie_iterator->key);
+            wprintf(L"[%d]-", nIt->key);
 
     wprintf(L"\n");
 
-    for(trie_iterator = root; trie_iterator; trie_iterator = trie_iterator->child, prefix++)
-        if(trie_iterator->sibling != 0)
-            print_trie_prefixed(trie_iterator->sibling, prefix);
+    for(nIt = root; nIt; child(nIt), prefix++)
+        if(nIt->sibling != 0)
+            print_trie_prefixed(nIt->sibling, prefix);
 }
 
 void print_trie(struct Trie * trie)
@@ -240,56 +254,56 @@ void print_trie(struct Trie * trie)
 struct Trie * create_trie()
 {
     setlocale(LC_ALL, "");
-    struct Trie * trie = (struct Trie *)malloc(sizeof(struct Trie));
+    struct Trie * trie = MALLOC_NEW(struct Trie);
     init_trie(trie);
     return trie;
 }
 
 struct KeyList * create_keylist()
 {
-    struct KeyList * keylist = (struct KeyList *)malloc(sizeof(struct KeyList));
-    init_keylist(keylist);
-    return keylist;
+    struct KeyList * list = MALLOC_NEW(struct KeyList);
+    init_keylist(list);
+    return list;
 }
 
 struct KeyListItem * create_keylistitem(KeyType key)
 {
-    struct KeyListItem * keylistitem = (struct KeyListItem *)malloc(sizeof(struct KeyListItem));
-    init_keylistitem(keylistitem);
-    keylistitem->key = key;
-    return keylistitem;
+    struct KeyListItem * item = MALLOC_NEW(struct KeyListItem);
+    init_keylistitem(item);
+    item->key = key;
+    return item;
 }
 
-void place_into_keylist(struct KeyList * keylist, struct KeyListItem * keylistitem)
+void place_into_keylist(struct KeyList * list, struct KeyListItem * item)
 {
-    struct KeyListItem * keylist_iterator = keylist->first;
+    struct KeyListItem * lIt = list->first;
 
-    if( !keylist_iterator ){
-        keylist->first = keylistitem;
-        keylist->count++;
+    if( !lIt ){
+        list->first = item;
+        list->count++;
         return;
     }
 
-    while( keylist_iterator->next && keylist_iterator->next->key < keylistitem->key )
-        keylist_iterator = keylist_iterator->next;
+    while(lIt->next && lIt->next->key < item->key)
+        next(lIt);
 
-    if( !keylist_iterator->next || keylist_iterator->next->key < keylistitem->key ){
-        keylistitem->next = keylist_iterator->next;
-        keylist_iterator->next = keylistitem;
-        keylist->count++;
+    if(!lIt->next || lIt->next->key < item->key){
+        item->next = lIt->next;
+        lIt->next = item;
+        list->count++;
     }
 }
 
-void create_and_place_into_keylist(struct KeyList * keylist, KeyType key)
+void create_and_place_into_keylist(struct KeyList * list, KeyType key)
 {
-    place_into_keylist(keylist, create_keylistitem(key));
+    place_into_keylist(list, create_keylistitem(key));
 }
 
-struct KeyList * keylist_from_array(int size, KeyType list[size])
+struct KeyList * keylist_from_array(int size, KeyType arr[size])
 {
-    struct KeyList * keylist = create_keylist();
-    int i;
-    for( i = 0; i < size; i++ )
-        create_and_place_into_keylist(keylist, list[i]);
-    return keylist;
+    struct KeyList * list = create_keylist();
+    int i = 0;
+    for(; i < size; i++)
+        create_and_place_into_keylist(list, arr[i]);
+    return list;
 }
